@@ -1,0 +1,25 @@
+#########################################################################
+# File Name: devflow.sh
+# Author: Christian chen
+# Mail: freestyletime@foxmail.com
+# Created Time: Thr Jan 29 15:23:09 2015
+#########################################################################
+#!/bin/sh
+echo -e "\n\n"
+set -x
+
+LAN_IFACE='br-lan'
+
+iptables -F RRDIPT 2> /dev/null
+
+while true
+do
+    grep ${LAN_IFACE} /proc/net/arp | while read IP TYPE FLAGS MAC MASK IFACE ;
+        do
+            (/usr/sbin/devflow ${IP})
+        done
+    sleep 1s
+done
+
+set +x
+echo -e "\n\n"

@@ -1,0 +1,208 @@
+#########################################################################
+# File Name: update.sh
+# Author: Christian chen
+# Mail: freestyletime@foxmail.com
+# Created Time: Wed Dec 24 11:41:39 2014
+#########################################################################
+#!/bin/sh
+
+echo -e "\n\n"
+set -x
+
+# -w : web | -f : firmware
+option=$1
+if [ ! -n "$option" ]
+then
+    exit 0
+fi
+
+pidfilepath="/var/run/update.pid"
+
+if [ $option == "-f" ]
+then
+    pid=`cat $pidfilepath`
+
+    if [ -n "$pid" ]
+    then
+        exit 0
+    fi
+
+    pid=$$
+    echo $pid > $pidfilepath
+
+    uu=$(($pid*$pid))
+    #Test#$(($uu%86400))
+    sleep 10
+fi
+
+v=`cat /version/v.json`
+
+random=`date +%s`
+echo "random is $random"
+
+timehead=`date +%s`
+timeext="000"
+time="$timehead$timeext"
+echo "time is $time"
+
+hardware="0.0.1"
+echo "hardware is $hardware"
+
+model=`echo $v | grep 'hw_type'|sed 's/^.*hw_type\":\"//g'|sed 's/\",.*$//g'`
+echo "model is $model"
+
+firmware=`echo $v | grep 'fw_version'|sed 's/^.*fw_version\":\"//g'|sed 's/\",.*$//g'`
+echo "firmware is $firmware"
+
+firmware_new=`uci get openwrtapi.firmware.newver`
+echo "firmware_new is $firmware_new"
+
+mac=`ifconfig|grep -e 'eth0 '|awk '{print $5}'`
+mac=${mac//:/}
+echo "mac is $mac"
+
+sn="DMA30101140879965"
+echo "sn is $sn"
+
+routerWeb=`uci get openwrtapi.www.currver`
+data=""
+
+if [ $option == "-w" ]
+then
+    data="routerWeb:$routerWeb"
+    echo "data is $data"
+elif [ $option == "-f" ]
+then
+    #data="firmware:$firmware"
+    echo "data is $data"
+fi
+
+#########################################################################
+#                       Original code
+#s1=`echo -n "$model$firmware$mac$sn$time"|md5sum|cut -d ' ' -f1`
+#echo "s1 is $s1"
+#s2=`echo -n "$data$random$time"|md5sum|cut -d ' ' -f1`
+#echo "s2 is $s2"
+#s3=`echo -n "$s1$s2"|md5sum|cut -d ' ' -f1`
+#token=`echo -n "$s3"|md5sum|cut -d ' ' -f1`
+#########################################################################
+
+token=`domy_encode $model $firmware $mac $sn $time $random $data`
+
+#curl -s -i -X POST --header 'noncestr:17301303756620495961461138968357' --header 'mac:143df21a00ff' --header 'time:1419043744139' --header 'firmware:0.9.1' --header 'model:DM1001' --header 'sn:DMA30101140879965'  --data 'routerWeb=1&token=509560377020b3856f0b868405ba275e' 'http://60.206.137.174/ota/api/open/update/web.json?'
+
+ret=""
+
+if [ $option == "-w" ]
+then
+    ret=`curl -s -X POST --header "hardware:$hardware" --header "noncestr:$random" --header "mac:$mac" --header "time:$time" --header "firmware:$firmware" --header "model:$model" --header "sn:$sn"  --data "routerWeb=$routerWeb&token=$token" 'http://60.206.137.174/ota/api/open/update/web.json?'`
+elif [ $option == "-f" ]
+then
+    ret=`curl -s -X POST --header "hardware:$hardware" --header "noncestr:$random" --header "mac:$mac" --header "time:$time" --header "firmware:$firmware" --header "model:$model" --header "sn:$sn"  --data "token=$token" 'http://60.206.137.174/ota/api/open/update.json?'`
+fi
+
+ret=${ret// /}
+ret=${ret//\\n/}
+
+newver=`echo $ret|grep 'routerWeb'|sed 's/^.*routerWeb\":\"//g'|sed 's/\",.*$//g'`
+newFirmware=`echo $ret|grep 'firmware'|sed 's/^.*firmware\":\"//g'|sed 's/\",.*$//g'`
+url=`echo $ret|grep 'url'|sed 's/^.*url\":\"//g'|sed 's/\",.*$//g'`
+md5=`echo $ret|grep 'md5'|sed 's/^.*md5\":\"//g'|sed 's/\",.*$//g'`
+echo "new version is $newver"
+echo "md5 is $md5"
+echo "url is $url"
+
+if [ $option == "-w" ]
+then
+    if [ -n "$url" ] || [ -n "$newver" ]
+    then
+    for i in `seq 3`
+        do
+            old=$(echo $routerWeb|cut -d "." -f$i)
+            new=$(echo $newver|cut -d "." -f$i)
+
+            if [ $old -lt $new ]
+            then
+                wget -c -O temp.zip $url
+                filename="template"
+                dir=`echo $filename|sed 's/\..*$//g'`
+                echo "dir is $dir"
+
+                lmd5=`md5sum ./temp.zip|cut -d " " -f1`
+                echo "lmd5 is $lmd5"
+
+                if [ ! -n "$lmd5" ]
+                then
+                    echo "lmd5 is empty"
+                else
+                    if [ "$lmd5" = "$md5" ]
+                    then
+                        unzip -o temp.zip
+                        cp -af $dir /www/
+                        uci set openwrtapi.www.currver=$newver | uci commit
+                        rm temp.zip
+                        rm -r $dir
+                        echo "Upgrade successfully, the latest version is ver:$newver"
+                    else
+                        echo "wrong md5:$lmd5, right md5:$md5"
+                    fi
+                fi
+                break
+            else
+                continue
+            fi
+        done
+    fi
+elif [ $option == "-f" ]
+then
+    if [ -n "$url" ] && [ -n "$newFirmware" ]
+    then
+        if [ -z "$firmware_new" ] || [ "$newFirmware" = "$firmware_new" ]
+        then
+            continue
+        else
+            for i in `seq 3`
+            do
+                old=$(echo $firmware|cut -d "." -f$i)
+                new=$(echo $newFirmware|cut -d "." -f$i)
+
+                if [ $old -lt $new ]
+                then
+                    dir="/tmp/"
+                    wget -c -P $dir $url
+                    filename=`basename $url`
+                    path=${dir}${filename}
+                    echo "path is $path"
+
+                    lmd5=`md5sum $path|cut -d " " -f1`
+                    echo "lmd5 is $lmd5"
+
+                    if [ ! -n "$lmd5" ]
+                    then
+                        echo "lmd5 is empty"
+                    else
+                        if [ "$lmd5" = "$md5" ]
+                        then
+                            uci set openwrtapi.firmware.newver=$newFirmware | uci set openwrtapi.firmware.path=$path | uci set openwrtapi.firmware.description=$ret | uci commit
+                            echo "Upgrade successfully, the latest firmware is ver:$newFirmware"
+                        else
+                            rm $path
+                            echo "wrong md5:$lmd5, right md5:$md5"
+                        fi
+                    fi
+                    break
+                else
+                    continue
+                fi
+            done
+        fi
+    fi
+fi
+
+if [ $option == "-f" ]
+then
+    rm $pidfilepath
+fi
+
+set +x
+echo -e "\n\n"

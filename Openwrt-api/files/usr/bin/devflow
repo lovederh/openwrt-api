@@ -1,0 +1,98 @@
+#########################################################################
+# File Name: devflow.sh
+# Author: Christian chen
+# Mail: freestyletime@foxmail.com
+# Created Time: Wed Jan 21 15:23:09 2015
+#########################################################################
+#!/bin/sh
+#echo -e "\n\n"
+#set -x
+
+ip=${1}
+
+if [ -n "$ip" ]
+then
+    LAN_IFACE='br-lan'
+    WAN='eth0'
+    detail=`iptables -nL RRDIPT | grep ${ip}`
+    if [ -z "$detail" ]
+    then
+        #iptables -F RRDIPT 2> /dev/null
+        iptables -N RRDIPT 2> /dev/null
+        iptables -L FORWARD --line-numbers -n | grep "RRDIPT" | grep "1" > /dev/null
+        if [ $? -ne 0 ]; then
+            iptables -L FORWARD -n | grep "RRDIPT" > /dev/null
+            if [ $? -eq 0 ]; then
+                iptables -D FORWARD -j RRDIPT
+            fi
+            iptables -I FORWARD -j RRDIPT
+        fi
+
+        iptables -L FORWARD --line-numbers -n | grep "RRDIPT" | grep "2" > /dev/null
+        if [ $? -ne 0 ]; then
+            iptables -L FORWARD -n | grep "RRDIPT" > /dev/null
+            if [ $? -ne 0 ]; then
+                iptables -D FORWARD -j RRDIPT
+            fi
+            iptables -I FORWARD 2 -j RRDIPT
+        fi
+
+        iptables -I RRDIPT -d ${ip} -j RETURN
+        iptables -I RRDIPT -s ${ip} -j RETURN
+        traffic=`iptables -L RRDIPT -vnx -t filter `
+        echo "$traffic" | grep ${ip} | while read PKTS BYTES TARGET PROT OPT IFIN IFOUT SRC DST
+            do
+                [ "${DST}" = "${ip}" ] && echo ${BYTES} > /tmp/out_end_${ip}.tmp
+                [ "${SRC}" = "${ip}" ] && echo ${BYTES} > /tmp/in_end_${ip}.tmp
+                date +%s > /tmp/time_${ip}.tmp
+            done
+    fi
+
+
+    traffic=`iptables -L RRDIPT -vnx -t filter `
+    echo "$traffic" | grep ${ip} | while read PKTS BYTES TARGET PROT OPT IFIN IFOUT SRC DST
+            do
+
+                if [ "${DST}" = "${ip}" ]; then
+                    out=$(cat /tmp/out_end_${ip}.tmp)
+                    time_start=$(cat /tmp/time_${ip}.tmp)
+                    time_end=$(date +%s)
+                    time=`expr $time_end - $time_start`
+                    if [ "$time" = 0 ]; then
+                        time=1
+                    fi
+
+                    tx=`expr $BYTES - $out`
+                    tx_rate=`expr $tx / $time`
+
+                    echo "${tx_rate}" > /tmp/out_${ip}.tmp
+                    echo "${BYTES}" > /tmp/out_end_${ip}.tmp
+                    date +%s > /tmp/time_${ip}.tmp
+                fi
+
+                if [ "${SRC}" = "${ip}" ]; then
+                    in=$(cat /tmp/in_end_${ip}.tmp)
+                    time_start=$(cat /tmp/time_${ip}.tmp)
+                    time_end=$(date +%s)
+                    time=`expr $time_end - $time_start`
+                    if [ "$time" = 0 ]; then
+                        time=1
+                    fi
+
+                    rx=`expr $BYTES - $in`
+                    rx_rate=`expr $rx / $time`
+
+                    echo "${rx_rate}" > /tmp/in_${ip}.tmp
+                    echo "${BYTES}" > /tmp/in_end_${ip}.tmp
+                fi
+            done
+
+    #IN=$(cat /tmp/in_${ip}.tmp)
+    #OUT=$(cat /tmp/out_${ip}.tmp)
+    #rm -f /tmp/in_${ip}.tmp
+    #rm -f /tmp/out_${ip}.tmp
+    #echo '{"ip":"'${ip}'","tx_packets":"'${OUT}'","rx_packets":"'${IN}'"}'
+fi
+
+#set +x
+#echo -e "\n\n"

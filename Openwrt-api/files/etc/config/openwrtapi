@@ -1,0 +1,30 @@
+config setting 'setting'
+    option init '1'
+
+config www 'www'
+	option currver '0.0.1'
+
+config network 'wan'
+	option enable '0'
+	option proto ''
+	option dns_mode 'auto'
+	option ip6 ''
+
+config network 'static_routes'
+    option enable '0'
+
+config network 'dhcp'
+	option enable '0'
+
+config firmware 'firmware'
+	option newver ''
+	option description ''
+	option path ''
+
+config firewall 'firewall'
+    option enable '0'
+    option packagetype ''
+    option pingswitch '1'
+
+config firewall 'synflood'
+    option enable '0'
