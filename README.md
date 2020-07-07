@@ -1,3 +1,9 @@
+# 如何使用
+
+修改synccode.sh，将其中的ip地址，修改为我们自己的192.168.2.1
+然后执行./synccode.sh，将程序拷贝到openwrt路由器中
+执行下面的curl命令进行测试
+
 # Using the OpenWrt API
 LuCI provides some of its libraries to external applications through a JSON-RPC API. This Howto shows how to use it and provides information about available functions.    
 openwrt-api 
@@ -26,6 +32,14 @@ If you want to call any exported library which requires an authentication token 
 
 # Exported Libraries
 
+`
+curl -i -X POST -d '{"jsonrpc": "2.0", "method": "login", "params": { "user": "root", "password":"root"}, "id": 1}' http://192.168.2.1/cgi-bin/luci/rpc/auth
+curl -i -d '{"jsonrpc": "2.0", "method": "wifi.iwscan", "params": ["root","root"], "id": 1}' \
+--header 'Content-Type: application/json'  \
+--header 'Cookie: sysauth=f58cf98779e5f69970251ad5d0e2253c' \
+http://192.168.2.1/cgi-bin/luci/rpc/sys?auth=f58cf98779e5f69970251ad5d0e2253c`
+
+
 ## auth 认证类接口
 
 ### method: admin_login
@@ -33,7 +47,7 @@ If you want to call any exported library which requires an authentication token 
 #### @ param password: password
 #### @ return token: authentication token
 #### @ example
-`curl -i -X POST -d '{"method":"admin_login","params":["88888888"]}' http://192.168.8.1/cgi-bin/luci/api/auth`
+`curl -i -X POST -d '{"method":"admin_login","params":["root"]}' http://192.168.2.1/cgi-bin/luci/api/auth`
 
 `{"id":"","result":{"token":"bd946bd87ff467ca9ca0663b4058f114"},"error":null}`
 
@@ -52,7 +66,7 @@ If you want to call any exported library which requires an authentication token 
 #### @ param newpassword: new password
 #### @ return none
 #### @ example
-`curl -i -X POST -d '{"method":"admin_change_password","params":["root","99999999"]}' http://192.168.8.1/cgi-bin/luci/api/auth`
+`curl -i -X POST -d '{"method":"admin_change_password","params":["root","root"]}' http://192.168.2.1/cgi-bin/luci/api/auth`
 
 `{"id":"","result":{},"error":null}`
 
@@ -72,7 +86,7 @@ rx_packets: 已接收的数据包
 uptime: 正常运行的时间    
 is_up: 网络接口是否正常工作    
 #### @ example
-`curl -i -X POST -d '{"method":"get_wan_status"}' http://192.168.8.1/cgi-bin/luci/api/net?auth=bd946bd87ff467ca9ca0663b4058f114`
+`curl -i -X POST -d '{"method":"get_wan_status"}' http://192.168.2.1/cgi-bin/luci/api/net?auth=e9698278cd3725cf26f8cb2c4327f31a`
 
 `{"id":"","result":{"rx_bytes":0,"ifname":"apcli0","tx_bytes":0,"ipaddrs":[{"netmask":"255.255.255.0","addr":"192.168.10.208","prefix":24}],"gwaddr":"192.168.10.1","tx_packets":0,"dnsaddrs":["192.168.10.1"],"rx_packets":0,"proto":"dhcp","id":"wan","ip6addrs":[],"uptime":2535,"subdevices":[],"is_up":true,"macaddr":"66:51:7E:80:09:F4","type":"ethernet","name":"apcli0"},"error":null}`
 
@@ -92,7 +106,7 @@ mrt 最大接收速度
 dns_mode dns模式 手动: hand/自动: auto
 pppd_options pppd选项
 #### @ example
-`curl -i -X POST -d '{"method":"get_wan_config"}' http://192.168.8.1/cgi-bin/luci/api/net?auth=bd946bd87ff467ca9ca0663b4058f114`
+`curl -i -X POST -d '{"jsonrpc":"2.0","method":"get_wan_config","params":[],"id":1}' http://192.168.8.1/cgi-bin/luci/api/net?auth=bd946bd87ff467ca9ca0663b4058f114`
 
 `{"id":null,"result":{"proto":"dhcp","dns_mode":"auto"},"error":null}`
 
@@ -295,7 +309,10 @@ macaddr:
 ipaddr:     
 hostname:     
 #### @ example
-`curl -i -X POST -d '{"method":"get_dhcp_leases"}' http://192.168.8.1/cgi-bin/luci/api/net?auth=bd946bd87ff467ca9ca0663b4058f114`
+`curl -i -X POST -d '{"method":"get_dhcp_leases"}' \
+--header 'Content-Type: application/json'  \
+--header 'Cookie: sysauth=f58cf98779e5f69970251ad5d0e2253c' \
+http://192.168.2.1/cgi-bin/luci/api/net?auth=f58cf98779e5f69970251ad5d0e2253c`
 
 `{"id":"","result":[{"expires":-27592,"macaddr":"48:d7:05:b7:a7:b5","ipaddr":"192.168.8.221","hostname":"appledeAir"}],"error":null}`
 
@@ -619,7 +636,7 @@ swaptotal:
 swapfree:    
 memfree:    
 #### @ example
-`curl -i -X POST -d '{"method":"get_memory_info"}' http://192.168.8.1/cgi-bin/luci/api/sys?auth=bd946bd87ff467ca9ca0663b4058f114`
+`curl -i -X POST -d '{"method":"get_memory_info"}' http://192.168.2.1/cgi-bin/luci/api/sys?auth=bd946bd87ff467ca9ca0663b4058f114`
 
 `{"id":"","result":{"membuffers":3072,"memcached":11428,"swapcached":0,"memtotal":61852,"swaptotal":0,"swapfree":0,"memfree":31512}"error":null}`
 
@@ -672,7 +689,7 @@ localtime: 路由器本地时间
 kernel: 路由器内核版本
 firmware: 路由器固件版本
 #### @ example
-`curl -i -X POST -d '{"method":"get_system_info"}' http://192.168.8.1/cgi-bin/luci/api/info`
+`curl -i -X POST -d '{"method":"get_system_info"}' http://192.168.2.1/cgi-bin/luci/api/info`
 
 `{"id":"","result":{"uptime":12014,"hostname":"OpenWrt","localtime":"Tue Dec 16 05:45:43 2014","kernel":"3.10.44\u000a","firmware":"WRTnode Barrier Breaker r41508/LuCI Trunksvn-r10457"},"error":null}`
 

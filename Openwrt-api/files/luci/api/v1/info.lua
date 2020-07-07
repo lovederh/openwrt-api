@@ -38,7 +38,7 @@ function get_network_updown_status()
     local wifinet = false
     local device = "domy_box"
 
-    local code = sys.net.pingtest("www.hiveview.com")
+    local code = sys.net.pingtest("www.baidu.com")
     if code == 0 then
         wanup = true
     end

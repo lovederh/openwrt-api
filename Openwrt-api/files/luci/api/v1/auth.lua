@@ -25,6 +25,31 @@ local function challenge(user, pass)
             token=token,
             secret=secret
         })
+        local config = require "luci.config"
+        local login = util.ubus("session", "login", {
+            username = user,
+            password = pass,
+            timeout  = tonumber(config.sauth.sessiontime)
+        })
+
+        if type(login) == "table" and
+           type(login.ubus_rpc_session) == "string"
+        then
+            util.ubus("session", "set", {
+                ubus_rpc_session = login.ubus_rpc_session,
+                values = {
+                    token = sys.uniqueid(16)
+                }
+            })
+
+            local sid, sdat = luci.controller.rpc.session_retrieve(login.ubus_rpc_session, { user })
+            if sdat then
+                return {
+                    sid = sid,
+                    token = sdat.token
+                }
+            end
+        end
     end
 
     return sid and {sid=sid, token=token, secret=secret}
